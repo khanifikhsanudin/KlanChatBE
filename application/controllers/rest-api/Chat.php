@@ -53,11 +53,11 @@ class Chat extends REST_Controller {
                 if ($cursor === null OR $cursor === "") {
                     $chat   = $this->db->query("SELECT * FROM chat WHERE thread = '$thread' ORDER BY UNIX_TIMESTAMP(created_at) DESC;")->result_array();
                 }else {
-                    $chat   = $this->db->query("SELECT * FROM chat WHERE thread = '$thread' AND created_at < '$cursor' ORDER BY UNIX_TIMESTAMP(created_at) DESC;")->result_array();
+                    $chat   = $this->db->query("SELECT * FROM chat WHERE thread = '$thread' AND created_at <= '$cursor' ORDER BY UNIX_TIMESTAMP(created_at) DESC;")->result_array();
                 }
 
                 if ($chat) {
-                    $unread = $this->db->query("SELECT COUNT(*) AS total, MIN(created_at) AS min_chat_date FROM chat WHERE thread = '$thread' AND member_id != '$member_id' AND seen = 0;")->row_array();
+                    $unread = $this->db->query("SELECT COUNT(*) AS total FROM chat WHERE thread = '$thread' AND member_id != '$member_id' AND seen = 0;")->row_array();
 
                     $last = $this->m_chat->seekAll($member_id, $thread)->row_array();
                     if ($last['seen'] === 0) {
@@ -75,20 +75,15 @@ class Chat extends REST_Controller {
                             $firebase->send($target['fcm_token'], $payload->getData());
                         }
                     }
-                    
 
                     $prev         = "";
                     $next         = "";
-                    $cursor       = "";
-                    if ($cursor === null OR $cursor === "") {
-                        $limit    = $limit + $unread['total'];
-                        if ($unread['min_chat_date'] != null) {
-                            $cursor   = $unread['min_chat_date'];
-                        }
-                    }
-
                     $chat_num = COUNT($chat);
                     if ($limit != null && $page != null && $page > 0) {
+                        if ($page === 1) {
+                            $limit = $limit + $unread['total'];
+                        }
+
                         $chat = array_slice($chat, ($limit * ($page - 1)), $limit);
                         
                         if (($limit * $page) < $chat_num) {
@@ -113,7 +108,6 @@ class Chat extends REST_Controller {
                         'message'      => 'Data chat berhasil di load.',
                         'prev'         => $prev,
                         'next'         => $next,
-                        'cursor'       => $cursor,
                         'data'         => array_reverse($chat)
                     ], REST_Controller::HTTP_OK);
 
